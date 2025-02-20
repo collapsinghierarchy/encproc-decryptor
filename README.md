@@ -12,11 +12,6 @@
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Usage](#usage)
-  - [Creating a New Stream](#creating-a-new-stream)
-  - [Contributing Data to a Stream](#contributing-data-to-a-stream)
-  - [Retrieving Aggregated Results](#retrieving-aggregated-results)
-- [How It Works](#how-it-works)
-- [Troubleshooting](#troubleshooting)
 - [License](#license)
 - [Contributing](#contributing)
 
