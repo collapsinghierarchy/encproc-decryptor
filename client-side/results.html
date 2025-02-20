@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Decrypt Snapshot Data</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f9f9f9;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    h1, h2 {
+      text-align: center;
+      color: #333;
+    }
+
+    form, .buttons {
+      display: flex;
+      flex-direction: column;
+    }
+
+    label {
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    input, button {
+      font-size: 16px;
+      padding: 10px;
+      margin-bottom: 20px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      width: 100%;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #007BFF;
+    }
+
+    button {
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .error {
+      color: red;
+      font-size: 14px;
+      margin-top: -15px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    /* Styles for the results container */
+    #resultsContainer {
+      display: none;
+      margin-top: 20px;
+      padding: 20px;
+      background-color: #e9ecef;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      font-family: Arial, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Load Secret Key and Decrypt Data</h1>
+    <form id="loadKeyForm">
+      <label for="secretKeyFile">Load Secret Key File</label>
+      <input type="file" id="secretKeyFile" accept=".json" required>
+      <button type="submit">Load Secret Key</button>
+    </form>
+    <div class="buttons" style="display: none;" id="actionButtons">
+      <button id="querySnapshot">Query Snapshot Data</button>
+      <button id="decryptResults">Decrypt Results</button>
+    </div>
+    <p id="error" class="error" style="display: none;">An error occurred. Please try again.</p>
+    
+    <!-- Results container -->
+    <div id="resultsContainer"></div>
+  </div>
+
+  <script src="./wasm_exec.js"></script>
+  <script>
+    let secretKey = null;
+    let id = null;
+    let encryptedResults = null;
+    let sampleSize = null; // Global variable to store sample_size
+
+    const wasmFilePath = "http://localhost:8000/static/decrypt_results.wasm"; // Replace with your actual Wasm file path
+
+    // Load Secret Key File
+    document.getElementById("loadKeyForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const fileInput = document.getElementById("secretKeyFile");
+      if (fileInput.files.length === 0) {
+        alert("Please select a file.");
+        return;
+      }
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const keyData = JSON.parse(e.target.result.trim());
+          const { id: loadedID, sk: loadedSecretKey } = keyData;
+          if (!loadedSecretKey || !/^[A-Za-z0-9+/=]+$/.test(loadedSecretKey)) {
+            throw new Error("Invalid Base64 format in the secret key.");
+          }
+          if (!loadedID) {
+            throw new Error("Missing or invalid ID in the key file.");
+          }
+          id = loadedID;
+          secretKey = loadedSecretKey;
+          alert("Secret key loaded successfully!");
+          document.getElementById("actionButtons").style.display = "flex";
+        } catch (err) {
+          console.error("Error loading secret key file:", err);
+          alert("Failed to load secret key file. Please check the file format.");
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    // Query Snapshot Data
+    document.getElementById("querySnapshot").addEventListener("click", async () => {
+      if (!id) {
+        alert("Secret key not loaded. Please load the key first.");
+        return;
+      }
+      try {
+        const response = await fetch(`http://localhost:8000/snapshot/aggregate/${id}`, {
+          method: "GET",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const { ct_aggr_byte_base64, id: responseID, sample_size } = data;
+          if (!ct_aggr_byte_base64 || typeof ct_aggr_byte_base64 !== "string") {
+            throw new Error("Invalid or missing 'ct_aggr_byte_base64' in the response.");
+          }
+          if (!responseID || responseID !== id) {
+            throw new Error(`Response ID (${responseID}) does not match the loaded ID (${id}).`);
+          }
+          if (typeof sample_size !== "number" || sample_size < 1) {
+            throw new Error("Invalid or missing 'sample_size' in the response.");
+          }
+          encryptedResults = ct_aggr_byte_base64;
+          sampleSize = sample_size; // Store the sample_size globally
+          alert(`Snapshot data fetched successfully!\nSample Size: ${sample_size}`);
+        } else {
+          throw new Error(`Failed to fetch snapshot data. HTTP Status: ${response.status}`);
+        }
+      } catch (err) {
+        console.error("Error fetching snapshot data:", err);
+        alert(`Failed to fetch snapshot data. ${err.message}`);
+      }
+    });
+
+    // Decrypt Results
+    document.getElementById("decryptResults").addEventListener("click", async () => {
+      if (!secretKey || !encryptedResults) {
+        alert("Ensure the secret key is loaded and snapshot data is fetched.");
+        return;
+      }
+      try {
+        const go = new Go();
+        const wasmModule = await WebAssembly.instantiateStreaming(fetch(wasmFilePath), go.importObject);
+        go.run(wasmModule.instance);
+        const decryptedResults = decrypt_result(encryptedResults, secretKey);
+        console.log("Decrypted Results:", decryptedResults);
+        alert("Decryption successful! Check the results below.");
+
+        // Process decrypted results to show only the first two numbers.
+        // Assuming decryptedResults is a comma-separated string.
+        const numbers = decryptedResults.split(',');
+        const privacyPreference = numbers[0] ? numbers[0].trim() : "N/A";
+        const rating = numbers[1] ? numbers[1].trim() : "N/A";
+
+        // Build the results HTML with sample size and descriptions.
+        const resultsHtml = `
+          <h2>Aggregated Results</h2>
+          <p><strong>Sample Size:</strong> ${sampleSize}</p>
+          <p>
+            <strong>Privacy Preference:</strong> ${privacyPreference}<br>
+            <em>Privacy Preference indicates how important privacy is the people filling out the form. </em>
+          </p>
+          <p>
+            <strong>Rating:</strong> ${rating}<br>
+            <em>Rating represents the evaluation of this idea. The more the better =P </em>
+          </p>
+        `;
+        const resultsContainer = document.getElementById("resultsContainer");
+        resultsContainer.style.display = "block";
+        resultsContainer.innerHTML = resultsHtml;
+      } catch (err) {
+        console.error("Error decrypting results:", err);
+        alert("Failed to decrypt the results.");
+      }
+    });
+  </script>
+</body>
+</html>

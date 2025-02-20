@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Secure Contribution Form</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f9f9f9;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .input-container {
+      flex: 1;
+    }
+
+    .input-container label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    .input-container input {
+      font-size: 16px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      width: 60px; /* Smaller input field */
+    }
+
+    .description {
+      flex: 2;
+      padding-left: 20px;
+      color: #555;
+      font-size: 14px;
+    }
+
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #007BFF;
+    }
+
+    button {
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 10px;
+      border-radius: 5px;
+      transition: background-color 0.3s;
+      align-self: center;
+      width: 150px;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .error {
+      color: red;
+      font-size: 14px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Contribute Data</h1>
+    <form id="contributionForm">
+      <div class="form-group">
+        <div class="input-container">
+          <label for="priv">Privacy Preference</label>
+          <input type="number" id="priv" name="priv" placeholder="1-10" required min="1" max="10">
+        </div>
+        <div class="description">
+          <p>
+            Privacy Preference indicates how important privacy is to you. A value of 1 means privacy is not important, while a value of 10 means it is very important.
+          </p>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <div class="input-container">
+          <label for="rating">Rating</label>
+          <input type="number" id="rating" name="rating" placeholder="1-10" required min="1" max="10">
+        </div>
+        <div class="description">
+          <p>
+            Rating represents your evaluation of this idea, where 1 indicates a poor rating and 10 indicates an excellent rating.
+          </p>
+        </div>
+      </div>
+      
+      <button type="submit">Submit</button>
+      <p id="error" class="error" style="display: none;">An error occurred. Please try again.</p>
+    </form>
+  </div>
+  <script src="./wasm_exec.js"></script>
+  <script>
+    // Global variable to store the public key.
+    let publicKey = "";
+    // Replace with the actual stream ID as needed.
+    const id = "BF16247855";
+
+    // Fetch the public key from the new GET route.
+    fetch(`http://localhost:8000/public-key/${id}`)
+      .then(response => {
+        if (!response.ok) throw new Error("Failed to fetch public key");
+        return response.json();
+      })
+      .then(data => {
+        publicKey = data.publicKey;
+        console.log("Public key loaded:", publicKey);
+      })
+      .catch(err => console.error("Error fetching public key:", err));
+
+    // Form submission handler.
+    document.getElementById("contributionForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      // Get form data.
+      const priv = parseInt(document.getElementById("priv").value, 10);
+      const rating = parseInt(document.getElementById("rating").value, 10);
+
+      // Validate that the inputs are numbers between 1 and 10.
+      if (isNaN(priv) || isNaN(rating) || priv < 1 || priv > 10 || rating < 1 || rating > 10) {
+        alert("Please enter valid numbers between 1 and 10 for both fields.");
+        return;
+      }
+
+      // Ensure the public key has been loaded.
+      if (!publicKey) {
+        alert("Public key not loaded yet. Please try again later.");
+        return;
+      }
+
+      // Load and initialize the Wasm module.
+      const go = new Go();
+      const wasmModule = await WebAssembly.instantiateStreaming(
+        fetch("http://localhost:8000/static/encryption_module.wasm"),
+        go.importObject
+      );
+      go.run(wasmModule.instance);
+
+      // Call WASM `populate` function for each input value.
+      eng_push(priv); // Push with the privacy preference.
+      eng_push(rating);  // Push with the rating.
+
+      // Encrypt the data using the WASM `encrypt_input` function.
+      const encryptedDataBase64 = eng_encrypt(publicKey);
+
+      // Prepare the payload.
+      const payload = JSON.stringify({ id, ct: encryptedDataBase64, pk: publicKey });
+
+      // Send the encrypted data to the API.
+      const response = await fetch(`http://localhost:8000/contribute/aggregate/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      });
+
+      if (response.ok) {
+        alert("Data submitted successfully!");
+        document.getElementById("contributionForm").reset();
+      } else {
+        document.getElementById("error").style.display = "block";
+      }
+    });
+  </script>
+</body>
+</html>
