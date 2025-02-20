@@ -178,7 +178,7 @@
       const encryptedDataBase64 = eng_encrypt(publicKey);
 
       // Prepare the payload.
-      const payload = JSON.stringify({ id, ct: encryptedDataBase64, pk: publicKey });
+      const payload = JSON.stringify({ id, ct: encryptedDataBase64});
 
       // Send the encrypted data to the API.
       const response = await fetch(`http://localhost:8000/contribute/aggregate/${id}`, {
