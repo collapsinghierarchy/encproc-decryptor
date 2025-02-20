@@ -69,9 +69,9 @@ everything will be set up correctly—provided you have a valid JWT token and th
 
 ```JSON
 { 
-        "id": "id",       // Stream ID
-		"sk": "skBase64", // Base64-encoded secret key
-		"pk": "pkBase64", // Base64-encoded public key
+    "id": "id",       
+		"sk": "skBase64", 
+		"pk": "pkBase64", 
 }
 ```
 
