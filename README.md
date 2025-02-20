@@ -67,21 +67,14 @@ By calling
 ``` 
 everything will be set up correctly—provided you have a valid JWT token and the correct URL for the corresponding encproc engine. This program registers a new stream and generates a fresh public/secret key pair, which is stored in a file called `keypair.json` in the same directory. Store this file securely, as it also contains the stream ID. The format is:
 
-```JSON
+```
 { 
-    "id": "id",       
+        "id": "id",       
 		"sk": "skBase64", 
 		"pk": "pkBase64", 
 }
 ```
-
-If you have generated the keypair by other means and the public key is accessible, you can initialize a new data stream in the encproc engine using the following API call. Replace `<your_jwt_token>` with your JWT token and `<your_pk>` with your public key (used by the encryption module):
-
-```bash
-curl -X POST http://localhost:8080/create-stream      -H "Authorization: Bearer <your_jwt_token>"      -d '{"pk": "<your_pk>"}'
-```
-
-Alternatively, refer to the Go function in `createStream.go` to see how this is handled:
+Refer to the Go function in `createStream.go` to see how this is handled:
 ```GO
 func createStream(apiURL, token string, publicKey []byte) (string, error)
 ```
@@ -209,8 +202,9 @@ For major changes, please open an issue first to discuss what you would like to 
 
 ---
 
-## Additional Resources
+## Additional Resources & Contact
 
 - [encproc Repository](https://github.com/collapsinghierarchy/encproc) – The server-side engine that powers the encrypted processing as a service.
+- Contact: encproc@gmail.com
 
 Happy decrypting!
