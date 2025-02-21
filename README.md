@@ -2,7 +2,7 @@
 
 **encproc-decryptor** is the client-side decryption utility designed to work in tandem with the [encproc](https://github.com/collapsinghierarchy/encproc) engine—your Encrypted Processing as a Service solution. This repository provides a set of tools and examples to help you create encrypted data streams, contribute encrypted data, and retrieve & decrypt aggregated results from the encproc engine.
 
-> **Note:** You must have the encproc engine up and running (see [encproc](https://github.com/collapsinghierarchy/encproc)) and a valid JWT token for authentication to start experimenting on your own. Reach out to (encproc@gmail.com) in such a case. Currently, there is also no instance of the encproc engine running, but i plan to launch one in the near future.
+> **Note:** You must have the encproc engine up and running (see [encproc](https://github.com/collapsinghierarchy/encproc)) and a valid JWT token for authentication to start experimenting on your own. Reach out to (encproc@gmail.com) in such a case.
 
 ---
 
