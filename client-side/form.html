@@ -128,10 +128,8 @@
     // Global variable to store the public key.
     let publicKey = "";
     // Replace with the actual stream ID as needed.
-    const id = "BF16247855";
-
-    // Fetch the public key from the new GET route.
-    fetch(`http://localhost:8000/public-key/${id}`)
+    const contributionID = "E9BA0A40C6";
+    fetch(`http://217.154.80.44:8080/public-key/${contributionID}`)
       .then(response => {
         if (!response.ok) throw new Error("Failed to fetch public key");
         return response.json();
@@ -165,7 +163,7 @@
       // Load and initialize the Wasm module.
       const go = new Go();
       const wasmModule = await WebAssembly.instantiateStreaming(
-        fetch("http://localhost:8000/static/encryption_module.wasm"),
+        fetch("http://217.154.80.44:8080/static/encryption_module.wasm"),
         go.importObject
       );
       go.run(wasmModule.instance);
@@ -181,7 +179,7 @@
       const payload = JSON.stringify({ id, ct: encryptedDataBase64});
 
       // Send the encrypted data to the API.
-      const response = await fetch(`http://localhost:8000/contribute/aggregate/${id}`, {
+      const response = await fetch(`http://217.154.80.44:8080/contribute/aggregate/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: payload,
