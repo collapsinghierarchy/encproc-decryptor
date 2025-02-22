@@ -128,8 +128,8 @@
     // Global variable to store the public key.
     let publicKey = "";
     // Replace with the actual stream ID as needed.
-    const contributionID = "E9BA0A40C6";
-    fetch(`http://217.154.80.44:8080/public-key/${contributionID}`)
+    const id = "E9BA0A40C6";
+    fetch(`http://217.154.80.44:8080/public-key/${id}`)
       .then(response => {
         if (!response.ok) throw new Error("Failed to fetch public key");
         return response.json();
