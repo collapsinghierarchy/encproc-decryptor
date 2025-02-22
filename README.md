@@ -1,8 +1,9 @@
 # encproc-decryptor
 
-**encproc-decryptor** is the client-side decryption utility designed to work in tandem with the [encproc](https://github.com/collapsinghierarchy/encproc) engine—your Encrypted Processing as a Service solution. This repository provides a set of tools and examples to help you create encrypted data streams, contribute encrypted data, and retrieve & decrypt aggregated results from the encproc engine.
+**encproc-decryptor** is the client-side decryption utility designed to work in tandem with the [encproc](https://github.com/collapsinghierarchy/encproc) engine—your Encrypted Processing as a Service solution. This repository provides a set of tools and examples to help you create encrypted data streams, contribute encrypted data, and retrieve and decrypt aggregated results from the encproc engine. Currently, it is in a highly experimental state and is not yet ready for production use. Visit the [Encproc Homepage](https://collapsinghierarchy.github.io/encproc-page/) to see the roadmap.
 
-> **Note:** You must have the encproc engine up and running (see [encproc](https://github.com/collapsinghierarchy/encproc)) and a valid JWT token for authentication to start experimenting on your own. Reach out to (encproc@gmail.com) in such a case.
+> **Note:** You must have access to a running encproc engine (see [encproc](https://github.com/collapsinghierarchy/encproc)) and a valid JWT token for authentication to begin experimenting. If you do not wish to set up your own engine or if you want to try the client-side examples—which are preconfigured with a running instance—please contact encproc@gmail.com for connection details.
+
 
 ---
 
@@ -28,17 +29,17 @@ The **encproc-decryptor** repository serves as a client-side complement to the e
   - Retrieve aggregated (encrypted) results.
   - Decrypt the aggregated results on the client side.
 
-This utility abstracts the complexities of interacting with homomorphic encryption and provides simple examples to help you integrate decryption into your workflow.
+This utility abstracts the complexities of interacting with homomorphic encryption and provides simple examples to help you integrate homomorphic encryption into your workflow.
 
 ---
 
 ## Prerequisites
 
 Before using **encproc-decryptor**, ensure that you have:
-- A (your own or someone's else) running instance of the [encproc](https://github.com/collapsinghierarchy/encproc) engine.
-- A valid JWT token for authentication with the encproc engine.
+- A (your own or someone's else) running instance of the [encproc](https://github.com/collapsinghierarchy/encproc) engine. The client-side examples are already set up to communicate with an already running instance.
+- A valid JWT token for authentication with the encproc engine. Reach out to (encproc@gmail.com) in order to get a token.
 - [Go](https://golang.org/) installed if you wish to compile or modify the Go code.
-- Basic knowledge of API requests.
+- Basic knowledge of API requests and web development.
 ---
 
 ## Installation
@@ -60,14 +61,10 @@ By calling
 ```bash
  go run createStream.go
 ``` 
-everything will be set up correctly—provided you have a valid JWT token and the correct URL for the corresponding encproc engine. This program registers a new stream and generates a fresh public/secret key pair, which is stored in a file called `keypair.json` in the same directory. Store this file securely, as it also contains the stream ID. The format is:
+everything will be set up correctly—provided you have a valid JWT token and the correct URL for the corresponding encproc engine. This program registers a new stream and generates a fresh public/secret key pair, which is stored in a file called `keypair.json` in the same directory. Store this file securely. The format is:
 
-```
-{ 
-        "id": "id",       
-		"sk": "skBase64", 
-		"pk": "pkBase64", 
-}
+```json
+{ "id": "id", "sk": "skBase64","pk": "pkBase64" }
 ```
 Refer to the Go function in `createStream.go` to see how this is handled:
 ```GO
@@ -92,7 +89,7 @@ To mark an integer for encryption, simply use `eng_push(integer)`, which fills u
 
 #### Setting Up the WebAssembly Runtime
 
-To use the `eng_push()` and `eng_enc(pk)` functions, you need to properly configure your WebAssembly (WASM) runtime environment for Go compilations. This involves several steps, similar to those implemented in `form.html`. We follow the instructions from the Go Wiki: [WebAssembly](https://go.dev/wiki/WebAssembly).
+To use the `eng_push()` and `eng_enc(pk)` functions, you need to properly configure your WebAssembly (WASM) runtime environment for Go compilations. This involves several steps, similar to those implemented in `form.html`. We follow the instructions from the [Go Wiki: WebAssembly](https://go.dev/wiki/WebAssembly).
 
 First, incorporate `wasm_exec.js` into your HTML. You can find this file in the repository, but you must ensure compatibility with our WASM binaries. The `wasm_exec.js` from this repository and from [encproc](https://github.com/collapsinghierarchy/encproc) are tested to work with the WASM binaries served by the encproc engine. Include it as follows:
 
@@ -106,7 +103,7 @@ Next, fetch the appropriate Go-WASM binary, initialize the global `go` variable,
 // Load and initialize the WASM module.
 const go = new Go();
 const wasmModule = await WebAssembly.instantiateStreaming(
-  fetch("http://localhost:8000/static/encryption_module.wasm"),
+  fetch("http://encproc-url:port/static/encryption_module.wasm"),
   go.importObject
 );
 go.run(wasmModule.instance);
@@ -118,8 +115,8 @@ Now, you can push values onto the input stack:
 
 ```javascript
 // Call the WASM `eng_push` function for each input value.
-error_msg_priv   = eng_push(priv);   // Push with the privacy preference.
-error_msg_rating = eng_push(rating); // Push with the rating.
+error_msg_priv   = eng_push(priv);   // Push with the privacy preference. Any errors will be returned as a string.
+error_msg_rating = eng_push(rating); // Push with the rating. Any errors will be returned as a string.
 ```
 
 Encryption is handled by the `eng_enc(pk)` function, which returns a Base64-encoded string representing the ciphertext. See the following example from `form.html`:
@@ -136,7 +133,7 @@ Once encrypted, you are ready to contribute the data to the stream. In `form.htm
 const payload = JSON.stringify({ id, ct: encryptedDataBase64 });
 
 // Send the encrypted data to the API.
-const response = await fetch(`http://localhost:8000/contribute/aggregate/${id}`, {
+const response = await fetch(`http://encproc-url:port/contribute/aggregate/${id}`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: payload,
@@ -150,7 +147,7 @@ This request forwards your encrypted data to the encproc engine, where it will b
 After enough contributions have been made, you can query the aggregated (encrypted) results. Use the same stream ID as before to fetch the results. In `results.md`, we provide an example of a simple GET request:
 
 ```javascript
-const response = await fetch(`http://localhost:8000/snapshot/aggregate/${id}`, {
+const response = await fetch(`http://encproc-url:port/snapshot/aggregate/${id}`, {
   method: "GET",
 });
 if (response.ok) {
@@ -170,7 +167,7 @@ If the request fails, an error message will be returned.
 To decrypt the aggregated ciphertext, you need the corresponding secret key; otherwise, the ciphertext is unusable. While decryption can be performed using the Lattigo Library, we provide a JavaScript decryption module—a Go decryption function compiled into WebAssembly (WASM). In our example, we load this WASM component from the encproc engine:
 
 ```javascript
-const wasmFilePath = "http://localhost:8000/static/decrypt_results.wasm";
+const wasmFilePath = "http://encproc-url:port/static/decrypt_results.wasm";
 ```
 
 This module exports the function:
@@ -199,7 +196,8 @@ For major changes, please open an issue first to discuss what you would like to 
 
 ## Additional Resources & Contact
 
-- [encproc Repository](https://github.com/collapsinghierarchy/encproc) – The server-side engine that powers the encrypted processing as a service.
+- [encproc Repository](https://github.com/collapsinghierarchy/encproc) -- The server-side engine that powers the encrypted processing as a service.
+- [encproc Homepage](https://collapsinghierarchy.github.io/encproc-page/) -- The hompage of this project with a roadmap and an introduction to the overall encproc project.
 - Contact: encproc@gmail.com
 
 Happy decrypting!
