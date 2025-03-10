@@ -168,11 +168,11 @@
       );
       go.run(wasmModule.instance);
 
-      // Call WASM `populate` function for each input value.
+      // Call WASM `eng_push` function for each input value.
       eng_push(priv); // Push with the privacy preference.
       eng_push(rating);  // Push with the rating.
 
-      // Encrypt the data using the WASM `encrypt_input` function.
+      // Encrypt the data using the WASM `eng_encrypt` function.
       const encryptedDataBase64 = eng_encrypt(publicKey);
 
       // Prepare the payload.
