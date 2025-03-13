@@ -101,10 +101,295 @@ In order to implemented a **minimal** webapp that meets all of these requirement
 > This is only a minimal version of such a webapp that fits a simple tutorial. I hope that the reader understands that there are many more aspects that needs to be implemented for a user friendly survey web app. My hope is that people do exactly this after the tutorial ^^
 
 - The survey creator front-end
-    - HTML+Javascript
+    - HTML+Javascript+WASM(from GO)
 - The survey participant front-End
-    - HTML+Javascript
-
-### Survey Creator Front-End
-
+    - HTML+Javascript+WASM(from GO)
+  
+>Theoretically you can create the WASM modules out of any other homomorphic encryption library (rust/c++ et al.). In this tutorial we, however, will use [lattigo](https://github.com/tuneinsight/lattigo) and the pre-compiled WASM modules from the [encproc](https://github.com/collapsinghierarchy/encproc/tree/main/static) static ressources. You can request these resources easily from the URL ``http://217.154.80.44:8080/static/``. 
 ### Survey Participant Front-End
+The story here is pretty straight forward. You will need some input forms for the answers and a encrypt & send button. Create a ``form.html`` file. The html for this might look like this:
+```HTML
+ <form id="contributionForm">
+      <div class="form-group">
+        <div class="input-container">
+        <label for="qst1">Qst1</label>
+          <input type="number" id="qst1" name="qst1" placeholder="1-10" required min="1" max="10">
+        </div>
+        <div class="description">
+          <p>
+            legitimate answer range 1-10
+          </p>
+        </div>
+      </div>
+      <button type="submit">Submit</button>
+      <p id="error" class="error" style="display: none;">An error occurred. Please try again.</p>
+    </form>
+  </div>
+```
+Now you need an according listener that reads the answers, encrypts them and sends the ciphertexts to the API engine for aggregation. The public key request for a specific stream ID (which is integrated in this tutorial as a static variable) is a simple GET Request.
+
+```HTML
+ <script>
+// Global variable to store the public key.
+let publicKey = "";
+// Replace with the actual stream ID as needed.
+const id = "E9BA0A40C6";
+fetch(`http://217.154.80.44:8080/public-key/${id}`)
+  .then(response => {
+    if (!response.ok) throw new Error("Failed to fetch public key");
+    return response.json();
+  })
+  .then(data => {
+    publicKey = data.publicKey;
+    console.log("Public key loaded:", publicKey);
+  })
+  .catch(err => console.error("Error fetching public key:", err));
+</script>
+```
+
+For the encryption functionality we will need to setup the javascript WASM envinroment for go compiled modules. For this you will need first to integrate the ``wasm_exec.js`` from your go installation that matches the go version of the environment, where the go modules were compiled into WASM modules. You can find the necessary ``wasm_exec.js`` for this tutorial in the [demo](https://github.com/collapsinghierarchy/encproc-decryptor/tree/main/survey%20demo) directory. Simply copy this file into the directory, where your ``form.html`` resides and add the script to the ``form.html`` file.
+```HTML  
+<script src="./wasm_exec.js"></script>
+```
+Now we need to add an suitable listener for the decryption button that decrypts the ciphertext with the imported secret key. For this we will need to load the according ``encryption_module.wasm`` from the API engine. 
+```Javascript
+// Load and initialize the Wasm module.
+const go = new Go();
+const wasmModule = await WebAssembly.instantiateStreaming(
+  fetch("http://217.154.80.44:8080/static/encryption_module.wasm"),
+  go.importObject
+);
+go.run(wasmModule.instance);
+```
+Calling of the javascript exported function ``eng_push(answer)`` from the ``encryption_module.wasm`` in order to encrypt the answer can be done in the following way within your listener:
+```Javascript
+// Call WASM `eng_push` function for each input value.
+  eng_push(qst1); 
+```
+Finally you need to a listener for the submission to trigger the encryption and submit the results to the API engine.
+```Javascript
+  // Form submission handler.
+    document.getElementById("contributionForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      // Get form data.
+      const priv = parseInt(document.getElementById("qst1").value, 10);
+
+      // Validate that the inputs are numbers between 1 and 10.
+      if ( isNaN(qst1) || qst1 < 1 || qst1 > 10) {
+        alert("Please enter valid numbers between 1 and 10 for both fields.");
+        return;
+      }
+
+      // Ensure the public key has been loaded.
+      if (!publicKey) {
+        alert("Public key not loaded yet. Please try again later.");
+        return;
+      }
+
+      // Load and initialize the Wasm module.
+      const go = new Go();
+      const wasmModule = await WebAssembly.instantiateStreaming(
+        fetch("http://217.154.80.44:8080/static/encryption_module.wasm"),
+        go.importObject
+      );
+      go.run(wasmModule.instance);
+
+      // Call WASM `eng_push` function for each input value.
+      eng_push(qst1); // Push with the privacy preference.
+
+      // Encrypt the data using the WASM `eng_encrypt` function.
+      const encryptedDataBase64 = eng_encrypt(publicKey);
+
+      // Prepare the payload.
+      const payload = JSON.stringify({ id, ct: encryptedDataBase64});
+
+      // Send the encrypted data to the API.
+      const response = await fetch(`http://217.154.80.44:8080/contribute/aggregate/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      });
+
+      if (response.ok) {
+        alert("Data submitted successfully!");
+        document.getElementById("contributionForm").reset();
+      } else {
+        document.getElementById("error").style.display = "block";
+      }
+    });
+```
+### Survey Creator Front-End
+Overall we can split the functional requirements into two groups.
+- Group A: **SC_REQ 1,2,3**
+- Group B: **SC_REQ 4,5**
+The split is due to the sequences of steps that need to be conducted together. 
+#### Group A REQs
+In this tutorial we won't bother with implementing the group A functionality in a separate html-form but will rather, for the sake of simplicity, use the ``createStream.go`` from this repository. For this you can simply run the go main with ``go run .`` inside the root directory. (It should be already pre-configured with a valid JWT-token)
+If the go module exits succesfully you should see a ``keypair.json`` file that contains the secret and public keypair and the stream ID such as ``E9BA0A40C6``. In this case the go module automatically registered the public key and assigned him the stream ID that you have received back. You are ready to go for the group B functionalities.
+
+>Optional: If you, however, would like to implement the group A functionality inside an HTML-form you will have to create a separate WASM module for key generation. Feel free to ask (encproc@gmail.com) or in our discord for support.
+
+#### Group B REQs
+>Note: If you are familiar with HTML and Javascript you will find the next 3 steps trivial. However, the 4/5/6th step is about the setup of the WASM environmentand calling the exported decryption function.
+
+This group of functionalities concerns the decryption of the results and the snapshot query of the aggregation. Firstly create a ``results.html`` file. Then we will need to create at least a 
+1. **secret key import functionality**, which can be a simple HTML ``input`` type of component for the ``keypair.json``.
+```HTML  
+<form id="loadKeyForm">
+  <label for="secretKeyFile">Load Secret Key File</label>
+  <input type="file" id="secretKeyFile" accept=".json" required>
+  <button type="submit">Load Secret Key</button>
+</form>
+```
+The imported file will contain the stream ID, the secret key and the public key ``BASE64`` encoded and within a ``JSON`` structure. In order to parse the secret key and the id you can copy the following listener.
+```HTML
+<script>  
+    let secretKey = null;
+    let id = null;
+    let encryptedResults = null;
+    let sampleSize = null; 
+
+    const wasmFilePath = "http://217.154.80.44:8080/static/decrypt_results.wasm";
+    
+     // Load Secret Key File
+    document.getElementById("loadKeyForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const fileInput = document.getElementById("secretKeyFile");
+      if (fileInput.files.length === 0) {
+        alert("Please select a file.");
+        return;
+      }
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const keyData = JSON.parse(e.target.result.trim());
+          const { id: loadedID, sk: loadedSecretKey } = keyData;
+          if (!loadedSecretKey || !/^[A-Za-z0-9+/=]+$/.test(loadedSecretKey)) {
+            throw new Error("Invalid Base64 format in the secret key.");
+          }
+          if (!loadedID) {
+            throw new Error("Missing or invalid ID in the key file.");
+          }
+          id = loadedID;
+          secretKey = loadedSecretKey;
+          alert("Secret key loaded successfully!");
+          document.getElementById("actionButtons").style.display = "flex";
+        } catch (err) {
+          console.error("Error loading secret key file:", err);
+          alert("Failed to load secret key file. Please check the file format.");
+        }
+      };
+      reader.readAsText(file);
+    });
+</script>
+``` 
+2. a GET Request for **``/snapshot/aggregate/{id}``**, which we can trigger with a simple button.
+```HTML  
+<button id="querySnapshot">Query Snapshot Data</button>
+```
+For this button you can use the following listener to your existing ``<script>...</script>``. This listener takes the ID from the previously imported ``keypair.json`` and sends a GET request to the according API endpoint in order to get the current encrypted aggregate ciphertext. The returned result will contain a ``BASE64`` encoded ciphertext and the ``sample size``.
+```Javascript
+// Query Snapshot Data
+  document.getElementById("querySnapshot").addEventListener("click", async () => {
+    if (!id) {
+      alert("Secret key not loaded. Please load the key first.");
+      return;
+    }
+    try {
+      const response = await fetch(`http://217.154.80.44:8080/snapshot/aggregate/${id}`, {
+        method: "GET",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const { ct_aggr_byte_base64, id: responseID, sample_size } = data;
+        if (!ct_aggr_byte_base64 || typeof ct_aggr_byte_base64 !== "string") {
+          throw new Error("Invalid or missing 'ct_aggr_byte_base64' in the response.");
+        }
+        if (!responseID || responseID !== id) {
+          throw new Error(`Response ID (${responseID}) does not match the loaded ID (${id}).`);
+        }
+        if (typeof sample_size !== "number" || sample_size < 1) {
+          throw new Error("Invalid or missing 'sample_size' in the response.");
+        }
+        encryptedResults = ct_aggr_byte_base64;
+        sampleSize = sample_size; // Store the sample_size globally
+        alert(`Snapshot data fetched successfully!\nSample Size: ${sample_size}`);
+      } else {
+        throw new Error(`Failed to fetch snapshot data. HTTP Status: ${response.status}`);
+      }
+    } catch (err) {
+      console.error("Error fetching snapshot data:", err);
+      alert(`Failed to fetch snapshot data. ${err.message}`);
+    }
+  });
+```
+3. a decryption functionality of the aggregated ciphertext that we have received by the previous request, which we can also trigger by a simple button and we add a results container as well that will contain the view of the results.
+```HTML  
+<button id="decryptResults">Decrypt Results</button>
+<!-- Results container -->
+<div id="resultsContainer"></div>
+```
+4. For the decryption functionality we will need to setup the javascript WASM envinroment for go compiled modules. For this you will need first to integrate the ``wasm_exec.js`` from your go installation that matches the go version of the environment, where the go modules were compiled into WASM modules. You can find the necessary ``wasm_exec.js`` for this tutorial in the [demo](https://github.com/collapsinghierarchy/encproc-decryptor/tree/main/survey%20demo) directory. Simply copy this file into the directory, where your ``results.html`` resides and add the script to the ``results.html`` file.
+```HTML  
+<script src="./wasm_exec.js"></script>
+```
+5. Now we need to add an suitable listener for the decryption button that decrypts the ciphertext with the imported secret key. For this we will need to load the according ``decrypt_results.wasm`` from the API engine. The url is stored in the beginning of the script as a constant variable ``const wasmFilePath``. In order to load the ``.wasm`` and "activate" it you need the following javacsript code
+```Javascript
+const go = new Go();
+const wasmModule = await WebAssembly.instantiateStreaming(fetch(wasmFilePath), go.importObject);
+go.run(wasmModule.instance);
+```
+6. Now that the ``decrypt_results.wasm`` is loaded and activated and the secret key is imported as well, you are ready to go to trigger the decryption. You can do this by simply calling the function ``decrypt_result(encryptedResults, secretKey)``. This is due to the ``decrypt_results.wasm`` exporting the javascript function ``decrypt_results`` and running the lattigo based decryption function in Go compiled as ``WASM``.
+```Javascript
+const decryptedResults = decrypt_result(encryptedResults, secretKey);
+```
+The overall listener can now look like this:
+```Javascript
+document.getElementById("decryptResults").addEventListener("click", async () => {
+      if (!secretKey || !encryptedResults) {
+        alert("Ensure the secret key is loaded and snapshot data is fetched.");
+        return;
+      }
+      try {
+        //---------------- WASM environment --------------------------
+        const go = new Go();
+        const wasmModule = await WebAssembly.instantiateStreaming(fetch(wasmFilePath), go.importObject);
+        go.run(wasmModule.instance);
+        //------------------------------------------------------------
+        
+        //---------------- decrypt_results.wasm exported function call ------------------------   
+        const decryptedResults = decrypt_result(encryptedResults, secretKey);
+        //------------------------------------------------------------------
+        console.log("Decrypted Results:", decryptedResults);
+        alert("Decryption successful! Check the results below.");
+
+        // Process decrypted results to show only the first two numbers.
+        // Assuming decryptedResults is a comma-separated string.
+        const numbers = decryptedResults.split(',');
+        const qst1 = numbers[0] ? numbers[0].trim() : "N/A";
+        const qst2 = numbers[1] ? numbers[1].trim() : "N/A";
+
+        // Build the results HTML with sample size and descriptions.
+        const resultsHtml = `
+          <h2>Aggregated Results</h2>
+          <p><strong>Sample Size:</strong> ${sampleSize}</p>
+          <p>
+            <strong>Qst1:</strong> ${qst1}<br>
+            <em>Description of the question 1</em>
+          </p>
+          <p>
+            <strong>Qst2:</strong> ${qst2}<br>
+            <em>Description of the question 1</em>
+          </p>
+        `;
+        const resultsContainer = document.getElementById("resultsContainer");
+        resultsContainer.style.display = "block";
+        resultsContainer.innerHTML = resultsHtml;
+      } catch (err) {
+        console.error("Error decrypting results:", err);
+        alert("Failed to decrypt the results.");
+      }
+    });
+```
