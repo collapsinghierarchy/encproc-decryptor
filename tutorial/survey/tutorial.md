@@ -33,7 +33,7 @@ The obvious risks/attack vectors are:
 Not so obvious may be:
 - Output Privacy: Eventually (if the results returned to survey creator are not all aggregated or the sample size is too small), the survey creator may constitute a fourth risk/attack vector. 
 
-In this tutorial we will see how we can address the first 3 risks, i.e., Malicious Intrusion, Interal Adversary, Human Error.
+> In this tutorial we will see how we can address the first 3 risks, i.e., Malicious Intrusion, Interal Adversary, Human Error. The 4th risk can be adressed too by the means of e.g. Differential Privacy. In the future i will provide additional tutorial on how to do this too in addition to the encryption. It's important to note here that Proection measures against the 4th risk such as Differential Privacy do not necessarily protect against risks 1,2,3 because their countermeasures such as homomorphic encryption are about ``Input Privacy``. So usually you want to use both mechanisms in conjunction.
 
 ##  Structure, Process and Risks of a General Encrypted Survey WebApp
 As you can see the changes of the overall processing are minimal. There is only the additional step of the key generation within the Survey Creation Front-End component.
