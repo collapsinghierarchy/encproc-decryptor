@@ -33,7 +33,8 @@ The obvious risks/attack vectors are:
 Not so obvious may be:
 - Output Privacy: Eventually (if the results returned to survey creator are not all aggregated or the sample size is too small), the survey creator may constitute a fourth risk/attack vector. 
 
-> In this tutorial we will see how we can address the first 3 risks, i.e., Malicious Intrusion, Interal Adversary, Human Error. The 4th risk can be adressed too by the means of e.g. Differential Privacy. In the future i will provide additional tutorial on how to do this too in addition to the encryption. It's important to note here that Proection measures against the 4th risk such as Differential Privacy do not necessarily protect against risks 1,2,3 because their countermeasures such as homomorphic encryption are about ``Input Privacy``. So usually you want to use both mechanisms in conjunction.
+In this tutorial we will see how we can address the first 3 risks, i.e., Malicious Intrusion, Interal Adversary, Human Error.
+>  The 4th risk can be adressed too by the means of e.g. Differential Privacy. In the future i will provide additional tutorial on how to do this too in addition to the encryption. It's important to note here that Proection measures against the 4th risk such as Differential Privacy do not necessarily protect against risks 1,2,3 because their countermeasures such as homomorphic encryption are about ``Input Privacy``. So usually you want to use both mechanisms in conjunction.
 
 ##  Structure, Process and Risks of a General Encrypted Survey WebApp
 As you can see the changes of the overall processing are minimal. There is only the additional step of the key generation within the Survey Creation Front-End component.
@@ -45,7 +46,9 @@ So how does this tackle the 3 previously mentioned attack vectors?
 - Internal Adversary: Same as the first category.
 - Human Error: Same as the first category. 
 
-This is due to the **honest-but-curious** attacker model, where it is assumed that any actor gaining access to the encrypted data does so only passively and does not try to manipulate the data. Protections against an **active** adversary are *somewhat* possible, but out-of-scope for this tutorial.
+This is due to the **honest-but-curious** attacker model, where it is assumed that any actor gaining access to the encrypted data does so only passively and does not try to manipulate the data.
+
+>Protections against an **active** adversary are *somewhat* possible, but out-of-scope for this tutorial.
 
 # So How to Create the Encrypted Survey WebApp?
 First of all we need to understand how the API engine [encproc](https://github.com/collapsinghierarchy/encproc) works. The construction of the encrypted survey webapp will follow then straight forwardly because it's simply one of the most simple use-cases for the engine and the homomorphic encryption in general. You can find a ready-to-use example in the [demo](https://github.com/collapsinghierarchy/encproc-decryptor/tree/main/survey%20demo) repository.
@@ -55,10 +58,10 @@ If you don't want to use the engine, then you can try to use the homomorphic enc
 ## The API Engine EncProc
 In our survey webApp the engine will take the role of the **Survey Back-End** that is self-hosted within the organisation. 
 
-> **Note:** Alternative architectures may be plenty. For example you can use your already existing **not-encrypted** survey webApp and enhance it with the API engine for aggregating the ciphertexts. This will have the positive side-effect of **data minimization** and **separation of duties** such that the encrypted data processing API engine does not receive any client-linkable meta-data of the survey participants.
+> **Note:** Alternative architectures may be plenty. For example you can use your already existing **not-encrypted** survey webApp and enhance it with the API engine for aggregating the ciphertexts. This will have the positive side-effect of **data minimization** and **separation of duties** such that the encrypted data processing API engine does not receive any client-linkable meta-data of the survey participants. So you dont have all your eggs lying in the same basket.
 
 ### Setup EncProc
-For the sake of simplicity of this tutorial we refer to the general setup of the engine to the [README](https://github.com/collapsinghierarchy/encproc) of the according repository. For this tutorial we will be using an already running instance of encproc ``http://217.154.80.44:8080``. The survey [demo](https://github.com/collapsinghierarchy/encproc-decryptor/tree/main/survey%20demo) example is already pre-configured to use this instance. 
+For the sake of simplicity of this tutorial we only refer to the general setup of the engine to the [README](https://github.com/collapsinghierarchy/encproc) of the according repository and don't bother with this. For this tutorial we will be using an already running instance of encproc ``http://217.154.80.44:8080``. The survey [demo](https://github.com/collapsinghierarchy/encproc-decryptor/tree/main/survey%20demo) example is already pre-configured to use this instance. 
 You can try to access the URL from your browser and you will receive ``heyho`` back in case it's up and running.
 
 ### Communicate with EncProc
@@ -96,129 +99,17 @@ You can see the sequence of functions that we will need to implement on the clie
 - The survey back-end will need to
     - to do a lot of stuff about which we do not care about in this tutorial. If you are interested you can look into the [encproc implementation](https://github.com/collapsinghierarchy/encproc)
 
-In order to implemented a **minimal** webapp that meets all of these requirements we will need to implement several components.
+In order to implement a **minimal** webapp that meets all of these requirements we will need to implement several components.
 
 > This is only a minimal version of such a webapp that fits a simple tutorial. I hope that the reader understands that there are many more aspects that needs to be implemented for a user friendly survey web app. My hope is that people do exactly this after the tutorial ^^
 
 - The survey creator front-end
-    - HTML+Javascript+WASM(from GO)
+    - HTML+Javascript+WASM(GO)
 - The survey participant front-End
-    - HTML+Javascript+WASM(from GO)
+    - HTML+Javascript+WASM(GO)
   
 >Theoretically you can create the WASM modules out of any other homomorphic encryption library (rust/c++ et al.). In this tutorial we, however, will use [lattigo](https://github.com/tuneinsight/lattigo) and the pre-compiled WASM modules from the [encproc](https://github.com/collapsinghierarchy/encproc/tree/main/static) static ressources. You can request these resources easily from the URL ``http://217.154.80.44:8080/static/``. 
-### Survey Participant Front-End
-The story here is pretty straight forward. You will need some input forms for the answers and a encrypt & send button. Create a ``form.html`` file. The html for this might look like this:
-```HTML
- <form id="contributionForm">
-      <div class="form-group">
-        <div class="input-container">
-        <label for="qst1">Qst1</label>
-          <input type="number" id="qst1" name="qst1" placeholder="1-10" required min="1" max="10">
-        </div>
-        <div class="description">
-          <p>
-            legitimate answer range 1-10
-          </p>
-        </div>
-      </div>
-      <button type="submit">Submit</button>
-      <p id="error" class="error" style="display: none;">An error occurred. Please try again.</p>
-    </form>
-  </div>
-```
-Now you need an according listener that reads the answers, encrypts them and sends the ciphertexts to the API engine for aggregation. The public key request for a specific stream ID (which is integrated in this tutorial as a static variable) is a simple GET Request.
 
-```HTML
- <script>
-// Global variable to store the public key.
-let publicKey = "";
-// Replace with the actual stream ID as needed.
-const id = "E9BA0A40C6";
-fetch(`http://217.154.80.44:8080/public-key/${id}`)
-  .then(response => {
-    if (!response.ok) throw new Error("Failed to fetch public key");
-    return response.json();
-  })
-  .then(data => {
-    publicKey = data.publicKey;
-    console.log("Public key loaded:", publicKey);
-  })
-  .catch(err => console.error("Error fetching public key:", err));
-</script>
-```
-
-For the encryption functionality we will need to setup the javascript WASM envinroment for go compiled modules. For this you will need first to integrate the ``wasm_exec.js`` from your go installation that matches the go version of the environment, where the go modules were compiled into WASM modules. You can find the necessary ``wasm_exec.js`` for this tutorial in the [demo](https://github.com/collapsinghierarchy/encproc-decryptor/tree/main/survey%20demo) directory. Simply copy this file into the directory, where your ``form.html`` resides and add the script to the ``form.html`` file.
-```HTML  
-<script src="./wasm_exec.js"></script>
-```
-Now we need to add an suitable listener for the decryption button that decrypts the ciphertext with the imported secret key. For this we will need to load the according ``encryption_module.wasm`` from the API engine. 
-```Javascript
-// Load and initialize the Wasm module.
-const go = new Go();
-const wasmModule = await WebAssembly.instantiateStreaming(
-  fetch("http://217.154.80.44:8080/static/encryption_module.wasm"),
-  go.importObject
-);
-go.run(wasmModule.instance);
-```
-Calling of the javascript exported function ``eng_push(answer)`` from the ``encryption_module.wasm`` in order to encrypt the answer can be done in the following way within your listener:
-```Javascript
-// Call WASM `eng_push` function for each input value.
-  eng_push(qst1); 
-```
-Finally you need to a listener for the submission to trigger the encryption and submit the results to the API engine.
-```Javascript
-  // Form submission handler.
-    document.getElementById("contributionForm").addEventListener("submit", async (event) => {
-      event.preventDefault();
-
-      // Get form data.
-      const priv = parseInt(document.getElementById("qst1").value, 10);
-
-      // Validate that the inputs are numbers between 1 and 10.
-      if ( isNaN(qst1) || qst1 < 1 || qst1 > 10) {
-        alert("Please enter valid numbers between 1 and 10 for both fields.");
-        return;
-      }
-
-      // Ensure the public key has been loaded.
-      if (!publicKey) {
-        alert("Public key not loaded yet. Please try again later.");
-        return;
-      }
-
-      // Load and initialize the Wasm module.
-      const go = new Go();
-      const wasmModule = await WebAssembly.instantiateStreaming(
-        fetch("http://217.154.80.44:8080/static/encryption_module.wasm"),
-        go.importObject
-      );
-      go.run(wasmModule.instance);
-
-      // Call WASM `eng_push` function for each input value.
-      eng_push(qst1); // Push with the privacy preference.
-
-      // Encrypt the data using the WASM `eng_encrypt` function.
-      const encryptedDataBase64 = eng_encrypt(publicKey);
-
-      // Prepare the payload.
-      const payload = JSON.stringify({ id, ct: encryptedDataBase64});
-
-      // Send the encrypted data to the API.
-      const response = await fetch(`http://217.154.80.44:8080/contribute/aggregate/${id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: payload,
-      });
-
-      if (response.ok) {
-        alert("Data submitted successfully!");
-        document.getElementById("contributionForm").reset();
-      } else {
-        document.getElementById("error").style.display = "block";
-      }
-    });
-```
 ### Survey Creator Front-End
 Overall we can split the functional requirements into two groups.
 - Group A: **SC_REQ 1,2,3**
@@ -379,10 +270,6 @@ document.getElementById("decryptResults").addEventListener("click", async () => 
             <strong>Qst1:</strong> ${qst1}<br>
             <em>Description of the question 1</em>
           </p>
-          <p>
-            <strong>Qst2:</strong> ${qst2}<br>
-            <em>Description of the question 1</em>
-          </p>
         `;
         const resultsContainer = document.getElementById("resultsContainer");
         resultsContainer.style.display = "block";
@@ -390,6 +277,119 @@ document.getElementById("decryptResults").addEventListener("click", async () => 
       } catch (err) {
         console.error("Error decrypting results:", err);
         alert("Failed to decrypt the results.");
+      }
+    });
+```
+
+### Survey Participant Front-End
+The story here is pretty straight forward. You will need some input forms for the answers and a encrypt & send button. Create a ``form.html`` file. The html for this might look like this:
+```HTML
+ <form id="contributionForm">
+      <div class="form-group">
+        <div class="input-container">
+        <label for="qst1">Qst1</label>
+          <input type="number" id="qst1" name="qst1" placeholder="1-10" required min="1" max="10">
+        </div>
+        <div class="description">
+          <p>
+            legitimate answer range 1-10
+          </p>
+        </div>
+      </div>
+      <button type="submit">Submit</button>
+      <p id="error" class="error" style="display: none;">An error occurred. Please try again.</p>
+    </form>
+```
+Now you need an according listener that reads the answers, encrypts them and sends the ciphertexts to the API engine for aggregation. The public key request for a specific stream ID (which is integrated in this tutorial as a static variable) is a simple GET Request.
+
+```HTML
+ <script>
+// Global variable to store the public key.
+let publicKey = "";
+// Replace with the actual stream ID as needed.
+const id = "E9BA0A40C6";
+fetch(`http://217.154.80.44:8080/public-key/${id}`)
+  .then(response => {
+    if (!response.ok) throw new Error("Failed to fetch public key");
+    return response.json();
+  })
+  .then(data => {
+    publicKey = data.publicKey;
+    console.log("Public key loaded:", publicKey);
+  })
+  .catch(err => console.error("Error fetching public key:", err));
+</script>
+```
+
+For the encryption functionality we will need to setup the javascript WASM envinroment for go compiled modules. For this you will need first to integrate the ``wasm_exec.js`` from your go installation that matches the go version of the environment, where the go modules were compiled into WASM modules. You can find the necessary ``wasm_exec.js`` for this tutorial in the [demo](https://github.com/collapsinghierarchy/encproc-decryptor/tree/main/survey%20demo) directory. Simply copy this file into the directory, where your ``form.html`` resides and add the script to the ``form.html`` file.
+```HTML  
+<script src="./wasm_exec.js"></script>
+```
+Now we need to add an suitable listener for the decryption button that decrypts the ciphertext with the imported secret key. For this we will need to load the according ``encryption_module.wasm`` from the API engine. 
+```Javascript
+// Load and initialize the Wasm module.
+const go = new Go();
+const wasmModule = await WebAssembly.instantiateStreaming(
+  fetch("http://217.154.80.44:8080/static/encryption_module.wasm"),
+  go.importObject
+);
+go.run(wasmModule.instance);
+```
+Calling of the javascript exported function ``eng_push(answer)`` from the ``encryption_module.wasm`` in order to encrypt the answer can be done in the following way within your listener:
+```Javascript
+// Call WASM `eng_push` function for each input value.
+  eng_push(qst1); 
+```
+Finally you need to a listener for the submission to trigger the encryption and submit the results to the API engine.
+```Javascript
+  // Form submission handler.
+    document.getElementById("contributionForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      // Get form data.
+      const priv = parseInt(document.getElementById("qst1").value, 10);
+
+      // Validate that the inputs are numbers between 1 and 10.
+      if ( isNaN(qst1) || qst1 < 1 || qst1 > 10) {
+        alert("Please enter valid numbers between 1 and 10 for both fields.");
+        return;
+      }
+
+      // Ensure the public key has been loaded.
+      if (!publicKey) {
+        alert("Public key not loaded yet. Please try again later.");
+        return;
+      }
+
+      // Load and initialize the Wasm module.
+      const go = new Go();
+      const wasmModule = await WebAssembly.instantiateStreaming(
+        fetch("http://217.154.80.44:8080/static/encryption_module.wasm"),
+        go.importObject
+      );
+      go.run(wasmModule.instance);
+
+      // Call WASM `eng_push` function for each input value.
+      eng_push(qst1); // Push with the privacy preference.
+
+      // Encrypt the data using the WASM `eng_encrypt` function.
+      const encryptedDataBase64 = eng_encrypt(publicKey);
+
+      // Prepare the payload.
+      const payload = JSON.stringify({ id, ct: encryptedDataBase64});
+
+      // Send the encrypted data to the API.
+      const response = await fetch(`http://217.154.80.44:8080/contribute/aggregate/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      });
+
+      if (response.ok) {
+        alert("Data submitted successfully!");
+        document.getElementById("contributionForm").reset();
+      } else {
+        document.getElementById("error").style.display = "block";
       }
     });
 ```
