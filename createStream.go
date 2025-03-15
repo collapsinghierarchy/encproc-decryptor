@@ -28,7 +28,7 @@ type he struct {
 func main() {
 	// Parse JWT token from command line
 	token := flag.String("token",
-		"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiMTIzNDUiLCJleHAiOjE3NDE5NzE2ODYsImlhdCI6MTc0MTg4NTI4NiwiaXNzIjoieW91ci1pc3N1ZXItbmFtZSJ9.OlQSy8esu3PMPs0V93Xl1OS1Jw2B2AkRoarBhfQumu8", "JWT token for API authentication")
+		"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiMTIzNDUiLCJleHAiOjE3NDIxMjYwNDQsImlhdCI6MTc0MjAzOTY0NCwiaXNzIjoieW91ci1pc3N1ZXItbmFtZSJ9.lvP2BItbQsOa4aYxVpR6tttdptC9tCooLEmi3kaiJbg", "JWT token for API authentication")
 	apiURL := flag.String("url", "http://217.154.80.44:8080/create-stream", "API URL")
 	outputFile := flag.String("output", "keypair.json", "Output file to store ID, SK, and PK")
 	flag.Parse()
