@@ -107,7 +107,7 @@
     let encryptedResults = null;
     let sampleSize = null; // Global variable to store sample_size
 
-    const wasmFilePath = "http://217.154.80.44:8080/static/decrypt_results.wasm"; // Replace with your actual Wasm file path
+    const wasmFilePath = "https://pseudocrypt.site/static/decrypt_results.wasm"; // Replace with your actual Wasm file path
 
     // Load Secret Key File
     document.getElementById("loadKeyForm").addEventListener("submit", async (event) => {
@@ -148,7 +148,7 @@
         return;
       }
       try {
-        const response = await fetch(`http://217.154.80.44:8080/snapshot/aggregate/${id}`, {
+        const response = await fetch(`https://pseudocrypt.site/snapshot/aggregate/${id}`, {
           method: "GET",
         });
         if (response.ok) {

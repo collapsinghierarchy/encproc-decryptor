@@ -129,7 +129,7 @@
     let publicKey = "";
     // Replace with the actual stream ID as needed.
     const id = "5E6E4CAB89";
-    fetch(`http://217.154.80.44:8080/public-key/${id}`)
+    fetch(`https://pseudocrypt.site/public-key/${id}`)
       .then(response => {
         if (!response.ok) throw new Error("Failed to fetch public key");
         return response.json();
@@ -163,7 +163,7 @@
       // Load and initialize the Wasm module.
       const go = new Go();
       const wasmModule = await WebAssembly.instantiateStreaming(
-        fetch("http://217.154.80.44:8080/static/encryption_module.wasm"),
+        fetch("https://pseudocrypt.site/static/encryption_module.wasm"),
         go.importObject
       );
       go.run(wasmModule.instance);
@@ -179,7 +179,7 @@
       const payload = JSON.stringify({ id, ct: encryptedDataBase64});
 
       // Send the encrypted data to the API.
-      const response = await fetch(`http://217.154.80.44:8080/contribute/aggregate/${id}`, {
+      const response = await fetch(`https://pseudocrypt.site/contribute/aggregate/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: payload,
